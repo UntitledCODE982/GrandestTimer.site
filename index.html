@@ -25,7 +25,6 @@
       color: #ff0;
       font-weight: bold;
       height: 1.5rem;
-      border: 1px solid yellow; /* debug visible border */
     }
   </style>
 </head>
@@ -47,8 +46,11 @@
     const MS_DAY = 24 * MS_HOUR;
     const MS_YEAR = 365.25 * MS_DAY;
 
-    // Eastern Daylight Time offset (UTC-4)
-    const EST_OFFSET = -4 * 60 * 60 * 1000;
+    const EST_OFFSET = -4 * 60 * 60 * 1000; // Eastern Daylight Time (UTC-4)
+
+    function getESTNow() {
+      return new Date(Date.now() + EST_OFFSET);
+    }
 
     function parseEST(year, month = 0, day = 1) {
       return new Date(Date.UTC(year, month, day) + EST_OFFSET);
@@ -84,8 +86,8 @@
       return { years, days, hours, minutes, seconds };
     }
 
-    function format(o) {
-      return `${o.years}y ${o.days}d ${String(o.hours).padStart(2,'0')}h ${String(o.minutes).padStart(2,'0')}m ${String(o.seconds).padStart(2,'0')}s`;
+    function formatTime({ years, days, hours, minutes, seconds }) {
+      return `${years}y ${days}d ${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`;
     }
 
     function formatShort(seconds) {
@@ -96,28 +98,28 @@
     }
 
     function update() {
-      const now = new Date(Date.now() + EST_OFFSET);
+      const now = getESTNow();
       const totalMs = endDate - startDate;
       const elapsedMs = now - startDate;
       const remainingMs = endDate - now;
       const percent = ((elapsedMs / totalMs) * 100).toFixed(5);
 
-      document.getElementById("elapsed").textContent = "Current Time Since Year 0: " + format(diffToYDHMS(elapsedMs));
-      document.getElementById("remaining").textContent = "Remaining: " + format(diffToYDHMS(remainingMs));
+      document.getElementById("elapsed").textContent = "Current Time Since Year 0: " + formatTime(diffToYDHMS(elapsedMs));
+      document.getElementById("remaining").textContent = "Remaining: " + formatTime(diffToYDHMS(remainingMs));
       document.getElementById("percent").textContent = `Progress: ${percent}%`;
 
-      const secondsElapsed = Math.floor((new Date() - sessionStart) / 1000);
-      document.getElementById("session").textContent = formatShort(secondsElapsed);
+      const sessionElapsedSeconds = Math.floor((Date.now() - sessionStart) / 1000);
+      document.getElementById("session").textContent = formatShort(sessionElapsedSeconds);
 
       for (let i = 0; i < milestones.length; i++) {
-        if (secondsElapsed >= milestones[i] && !milestoneShown[milestones[i]]) {
-          milestoneShown[milestones[i]] = true;
-          console.log(`Milestone reached: ${milestoneLabels[i]}`); // Debug log
+        const milestone = milestones[i];
+        if (sessionElapsedSeconds >= milestone && !milestoneShown[milestone]) {
+          milestoneShown[milestone] = true;
           document.getElementById("milestone").textContent = `🎉 You've been here for ${milestoneLabels[i]}!`;
           setTimeout(() => {
             document.getElementById("milestone").textContent = "";
           }, 5000);
-          break; // Show one milestone at a time
+          break;
         }
       }
     }
