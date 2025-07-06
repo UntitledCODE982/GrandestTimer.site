@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Year 0 to 10,000 Progress with Boundary Alerts</title>
+<style>
+  body {
+    background: #111;
+    color: #0f0;
+    font-family: monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 20px;
+    min-height: 100vh;
+    font-size: 1.5rem;
+  }
+  #progress-container {
+    width: 80%;
+    height: 30px;
+    background: #444;
+    margin: 20px 0;
+    border-radius: 15px;
+    overflow: hidden;
+  }
+  #progress-bar {
+    height: 100%;
+    width: 0%;
+    background: #0f0;
+    transition: width 1s linear;
+  }
+  .time-box {
+    margin: 10px 0;
+    white-space: pre-wrap;
+    text-align: center;
+  }
+  #event-message {
+    margin-top: 15px;
+    font-weight: bold;
+    color: #ff0;
+    height: 2rem;
+    min-height: 2rem;
+  }
+</style>
+</head>
+<body>
+
+<h1>Year 0 to 10,000 Progress (EST)</h1>
+
+<div id="progress-container"><div id="progress-bar"></div></div>
+
+<div id="elapsed" class="time-box">Elapsed: Loading...</div>
+<div id="remaining" class="time-box">Remaining: Loading...</div>
+<div id="currentTime" class="time-box">Current EST Time: Loading...</div>
+
+<div id="event-message"></div>
+
+<script>
+  const MS_PER_SECOND = 1000;
+  const MS_PER_MINUTE = MS_PER_SECOND * 60;
+  const MS_PER_HOUR = MS_PER_MINUTE * 60;
+  const MS_PER_DAY = MS_PER_HOUR * 24;
+  const MS_PER_YEAR = MS_PER_DAY * 365.25; // Approximate with leap years
+
+  const EST_OFFSET_MINUTES = -5 * 60;
+
+  function parseESTDate(year, month=0, day=1, hours=0, minutes=0, seconds=0) {
+    const utc = Date.UTC(year, month, day, hours, minutes, seconds);
+    return new Date(utc + EST_OFFSET_MINUTES * 60 * 1000);
+  }
+
+  const startDate = parseESTDate(0,0,1,0,0,0);
+  const endDate = parseESTDate(10000,0,1,0,0,0);
+
+  function diffToYDHMS(ms) {
+    let years = Math.floor(ms / MS_PER_YEAR);
+    ms -= years * MS_PER_YEAR;
+
+    let days = Math.floor(ms / MS_PER_DAY);
+    ms -= days * MS_PER_DAY;
+
+    let hours = Math.floor(ms / MS_PER_HOUR);
+    ms -= hours * MS_PER_HOUR;
+
+    let minutes = Math.floor(ms / MS_PER_MINUTE);
+    ms -= minutes * MS_PER_MINUTE;
+
+    let seconds = Math.floor(ms / MS_PER_SECOND);
+
+    return {years, days, hours, minutes, seconds};
+  }
+
+  function formatYDHMS(o) {
+    return `${o.years}y ${o.days}d ${String(o.hours).padStart(2,'0')}h ${String(o.minutes).padStart(2,'0')}m ${String(o.seconds).padStart(2,'0')}s`;
+  }
+
+  // Helper: get EST date components as integers
+  function getESTComponents(date) {
+    // Convert UTC time + offset
+    const utc = date.getTime();
+    const est = new Date(utc + EST_OFFSET_MINUTES * 60 * 1000);
+    return {
+      year: est.getUTCFullYear(),
+      month: est.getUTCMonth(),
+      date: est.getUTCDate(),
+      day: est.getUTCDay(), // 0=Sunday ... 6=Saturday
+      hours: est.getUTCHours(),
+      minutes: est.getUTCMinutes(),
+      seconds: est.getUTCSeconds()
+    };
+  }
+
+  const eventMessageEl = document.getElementById('event-message');
+  let lastEvent = null;
+  let eventTimeout = null;
+
+  function showEventMessage(text) {
+    if (lastEvent === text) return; // avoid repeating same event repeatedly
+    lastEvent = text;
+    eventMessageEl.textContent = text;
+    if(eventTimeout) clearTimeout(eventTimeout);
+    eventTimeout = setTimeout(() => {
+      eventMessageEl.textContent = '';
+      lastEvent = null;
+    }, 3000);
+  }
+
+  function isEndOfMinute(components) {
+    return components.seconds === 59;
+  }
+  function isEndOfHour(components) {
+    return components.minutes === 59 && components.seconds === 59;
+  }
+  function isEndOfDay(components) {
+    return components.hours === 23 && components.minutes === 59 && components.seconds === 59;
+  }
+  function isEndOfWeek(components) {
+    // week ends Saturday 23:59:59 EST
+    return components.day === 6 && isEndOfDay(components);
+  }
+  function isEndOfMonth(components) {
+    // check if next day is month+1
+    const estDate = new Date(Date.UTC(components.year, components.month, components.date, components.hours, components.minutes, components.seconds));
+    const nextDay = new Date(estDate.getTime() + MS_PER_DAY);
+    return nextDay.getUTCMonth() !== components.month
+      && components.hours === 23 && components.minutes === 59 && components.seconds === 59;
+  }
+  function isEndOfYear(components) {
+    return components.month === 11 && components.date === 31
+      && components.hours === 23 && components.minutes === 59 && components.seconds === 59;
+  }
+
+  function update() {
+    const now = new Date();
+
+    // Get EST components
+    const comps = getESTComponents(now);
+
+    // Calculate elapsed/remaining as before
+    const nowEST = new Date(now.getTime() + EST_OFFSET_MINUTES * 60 * 1000);
+    const elapsedMs = nowEST - startDate;
+    const remainingMs = endDate - nowEST;
+    const totalMs = endDate - startDate;
+
+    const clampedElapsed = Math.min(Math.max(elapsedMs, 0), totalMs);
+    const clampedRemaining = Math.max(remainingMs, 0);
+
+    const progressPercent = ((clampedElapsed / totalMs) * 100).toFixed(6);
+    document.getElementById('progress-bar').style.width = `${progressPercent}%`;
+
+    document.getElementById('elapsed').textContent = 'Elapsed:   ' + formatYDHMS(diffToYDHMS(clampedElapsed));
+    document.getElementById('remaining').textContent = 'Remaining: ' + formatYDHMS(diffToYDHMS(clampedRemaining));
+    document.getElementById('currentTime').textContent = `Current EST Time: ${comps.year}y ${comps.month+1}m ${comps.date}d ${String(comps.hours).padStart(2,'0')}h ${String(comps.minutes).padStart(2,'0')}m ${String(comps.seconds).padStart(2,'0')}s`;
+
+    // Check events and show message if needed
+    if (isEndOfYear(comps)) showEventMessage('End of the year');
+    else if (isEndOfMonth(comps)) showEventMessage('End of the month');
+    else if (isEndOfWeek(comps)) showEventMessage('End of the week');
+    else if (isEndOfDay(comps)) showEventMessage('End of the day');
+    else if (isEndOfHour(comps)) showEventMessage('End of the hour');
+    else if (isEndOfMinute(comps)) showEventMessage('End of the minute');
+  }
+
+  update();
+  setInterval(update, 1000);
+</script>
+
+</body>
+</html>
