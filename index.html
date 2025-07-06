@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Year 0 to 10,000 Countdown</title>
+  <title>Year 0 to 10,000 Countdown (EST)</title>
   <style>
     body {
       background: #111;
@@ -25,6 +25,7 @@
       color: #ff0;
       font-weight: bold;
       height: 1.5rem;
+      border: 1px solid yellow; /* debug visible border */
     }
   </style>
 </head>
@@ -46,7 +47,8 @@
     const MS_DAY = 24 * MS_HOUR;
     const MS_YEAR = 365.25 * MS_DAY;
 
-    const EST_OFFSET = -5 * 60 * 60 * 1000;
+    // Eastern Daylight Time offset (UTC-4)
+    const EST_OFFSET = -4 * 60 * 60 * 1000;
 
     function parseEST(year, month = 0, day = 1) {
       return new Date(Date.UTC(year, month, day) + EST_OFFSET);
@@ -57,15 +59,9 @@
     const sessionStart = new Date();
 
     const milestones = [
-      60,             // 1 min
-      600,            // 10 mins
-      3600,           // 1 hour
-      6000,           // 100 mins
-      7200, 10800, 14400, 18000, 21600, 25200, 28800, 32400, 36000, // 2h–10h
-      86400,          // 1 day
-      604800,         // 1 week
-      2592000,        // 1 month (30d)
-      31536000        // 1 year
+      60, 600, 3600, 6000,
+      7200, 10800, 14400, 18000, 21600, 25200, 28800, 32400, 36000,
+      86400, 604800, 2592000, 31536000
     ];
     const milestoneLabels = [
       "1 minute", "10 minutes", "1 hour", "100 minutes",
@@ -107,4 +103,27 @@
       const percent = ((elapsedMs / totalMs) * 100).toFixed(5);
 
       document.getElementById("elapsed").textContent = "Current Time Since Year 0: " + format(diffToYDHMS(elapsedMs));
-      document.getElementById("remaining").textContent = "Re
+      document.getElementById("remaining").textContent = "Remaining: " + format(diffToYDHMS(remainingMs));
+      document.getElementById("percent").textContent = `Progress: ${percent}%`;
+
+      const secondsElapsed = Math.floor((new Date() - sessionStart) / 1000);
+      document.getElementById("session").textContent = formatShort(secondsElapsed);
+
+      for (let i = 0; i < milestones.length; i++) {
+        if (secondsElapsed >= milestones[i] && !milestoneShown[milestones[i]]) {
+          milestoneShown[milestones[i]] = true;
+          console.log(`Milestone reached: ${milestoneLabels[i]}`); // Debug log
+          document.getElementById("milestone").textContent = `🎉 You've been here for ${milestoneLabels[i]}!`;
+          setTimeout(() => {
+            document.getElementById("milestone").textContent = "";
+          }, 5000);
+          break; // Show one milestone at a time
+        }
+      }
+    }
+
+    update();
+    setInterval(update, 1000);
+  </script>
+</body>
+</html>
